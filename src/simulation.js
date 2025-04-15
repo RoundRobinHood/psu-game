@@ -95,7 +95,7 @@ export function HeatPoints(frequency = 1/360, simDimensions = new Vec2(100, 100)
       nextHeatPoint = prev.time + Math.floor(-Math.log(Math.random()) / frequency);
       let spawnPosition = simDimensions.Random().Sub(prev.wind.Div(frequency))
       while((spawnPosition.x > 0 && spawnPosition.x < simDimensions.x) && (spawnPosition.y > 0 && spawnPosition.y < simDimensions.y))
-        spawnPosition.Sub(prev.wind);
+        spawnPosition = spawnPosition.Sub(prev.wind);
       const heatPoint = {
         pos: spawnPosition,
         strength: Math.random()*maxStrength,

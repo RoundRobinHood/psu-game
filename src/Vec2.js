@@ -1,18 +1,18 @@
 class Mat2 {
   // Takes in 2 basis vectors, i hat and j hat
-  constructor(i, j) {
-    this.i = i;
-    this.top = new Vec2(i.x, j.x);
-    this.j = j;
-    this.bottom = new Vec2(i.y, j.y);
+  constructor(i1, j1, i2=null, j2=null) {
+    if(i1 instanceof Vec2) {
+      this.i = i1;
+      this.top = new Vec2(i1.x, j1.x);
+      this.j = j1;
+      this.bottom = new Vec2(i1.y, j1.y);
+    } else {
+      this.i = new Vec2(j1, i1);
+      this.top = new Vec2(j1, j2);
+      this.j = new Vec2(j2, i2);
+      this.bottom = new Vec2(i1, i2);
+    }
     Object.freeze(this);
-  }
-
-  constructor(x1, y1, x2, y2) {
-    this.i = new Vec2(x1, y1);
-    this.top = new Vec2(x1, x2);
-    this.j = new Vec2(x2, y2);
-    this.bottom = new Vec2(y1, y2);
   }
 
   Transform(vec) {
