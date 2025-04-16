@@ -3,3 +3,8 @@
   padding: 0;
   box-sizing: border-box;
 }
+
+.normContainer > * {
+  pointer-events: auto;
+  position: absolute;
+}

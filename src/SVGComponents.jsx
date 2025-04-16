@@ -85,6 +85,9 @@ export function Entities({entities, width, height, rows, columns}) {
       <symbol id='sensor' viewBox='0 0 10 10'>
         <circle r={1} cx='5' cy='5' fill='gray' stroke='black' strokeWidth={0.5}/> 
       </symbol>
+      <symbol id='controller' viewBox='0 0 10 10'>
+        <circle r={1.4} cx='5' cy='5' fill='black' stroke='grey' strokeWidth={0.5}/>
+      </symbol>
     </defs>
   );
   return [defs, ...(entities.map((entity, i) => {

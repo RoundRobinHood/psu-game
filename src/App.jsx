@@ -3,8 +3,9 @@ import { useRef, useState, useEffect } from "react";
 import Vec2 from './Vec2';
 import { Grid, Entities, TempDiagnostic, TempDiagnosticCanvas } from './SVGComponents.jsx';
 import { ClientToSVGCoords, FullFreeze, SVGToGameCoords } from './math.js';
-import { FarmIncome, FarmSpawning, HeatPoints, Temps } from './simulation.js';
-import { Shop } from './Overlay.jsx';
+import { FarmIncome, FarmSpawning, GameOverCheck, HeatPoints, Temps } from './simulation.js';
+import { Container, Shop } from './Overlay.jsx';
+import { InitGameState } from './gameState.js';
 
 // Game grid: sensors, farms etc
 const rows = 10;
@@ -16,19 +17,7 @@ const simulationResolution = 10;
 const targetFPS = 60;
 
 function App() {
-  const [gameState, setGameState] = useState({
-    entities: [],
-    wind: new Vec2(10/targetFPS, 0).Rotate(Math.random() * 2 * Math.PI),
-    simOffset: new Vec2(0, 0),
-    heatPoints: [],
-    arbit: [0, 0],
-    nextHeatPoint: Math.floor(-Math.log(Math.random()) * 30 * targetFPS),
-    temp: [],
-    simulations: [],
-    points: 10,
-    action: "none",
-    time: -1,
-  });
+  const [gameState, setGameState] = useState(InitGameState(targetFPS));
   const [touchPos, setTouchPos] = useState(null);
   const [windowViewport, setWindowViewport] = useState(new Vec2(window.innerWidth, window.innerHeight));
   useEffect(() => {
@@ -51,13 +40,18 @@ function App() {
 
   useEffect(() => {
     console.log(gameState.heatPoints);
-  }, [gameState.heatPoints.length]);
+  }, [gameState.heatPoints?.length]);
   useEffect(() => {
     console.log("Starting simulation loop")
 
     // Simulate and update game state
     const interval = setInterval(() => setGameState(prev => {
       // Deep clone prev
+
+      /**
+       * @typedef {import('./gameState.js').GameState} GameState
+       */
+      /** @type {GameState} */
       let next = {
         entities: [...prev.entities],
         wind: prev.wind,
@@ -65,13 +59,14 @@ function App() {
         heatPoints: prev.heatPoints.map(x => {return {
           pos: x.pos,
           strength: x.strength,
-          radius: x.radius,
+          source: x.source,
+          vel: x.vel,
         };}),
-        arbit: prev.arbit,
         nextHeatPoint: prev.nextHeatPoint,
         temp: prev.temp.map(row => [...row]),
         simulations: [...prev.simulations],
-        points: prev.points,
+        coins: prev.coins,
+        score: prev.score,
         action: prev.action,
         time: prev.time + 1,
       }
@@ -79,7 +74,14 @@ function App() {
       // Initialize everything if not initialized
       if(prev.simulations.length == 0) {
         // next.simulations = [HeatFlow(), HeatDiffusion(0.001), FarmIncome(1 / targetFPS), FarmSpawning(targetFPS * 100, new Vec2(columns, rows)), HeatPoints()];
-        next.simulations = [HeatPoints(), Temps([18, 24], new Vec2(1, 1).Mult(0.05)), FarmIncome(1 / targetFPS), FarmSpawning(targetFPS * 100, new Vec2(columns, rows))];
+        next.simulations = [
+          HeatPoints(),
+          Temps([18, 24],
+          new Vec2(1, 1).Mult(0.05)),
+          FarmIncome(1 / targetFPS, 10 / targetFPS),
+          FarmSpawning(targetFPS * 100, new Vec2(columns, rows)),
+          GameOverCheck(targetFPS, simulationResolution)
+        ];
       }
 
       const simulations = [...next.simulations];
@@ -129,10 +131,9 @@ function App() {
           }}
           onTouchEnd={_ => {
             console.log(touchPos)
+            const gameCoords = touchPos.Mult(columns, rows).Div(1000).Floor();
             if(gameState.action == "placeSensor") setGameState(prev => {
-              let gameCoords = touchPos.Mult(columns/1000, rows/1000);
-              gameCoords = new Vec2(Math.floor(gameCoords.x), Math.floor(gameCoords.y));
-              if(prev.entities.some(x => x.pos.x == gameCoords.x && x.pos.y == gameCoords.y)) {
+              if(prev.entities.some(x => x.pos.Equals(gameCoords) && x.type != 'controller')) {
                 console.log("Position already occupied.");
                 return prev;
               }
@@ -141,6 +142,22 @@ function App() {
                 pos: gameCoords,
               }], action: "none"};
             })
+            if(gameState.action == "placeController") setGameState(prev => {
+              if(prev.entities.some(x => x.pos.Equals(gameCoords) && x.type != 'sensor')) {
+                console.log("Position already occupied.");
+                return prev;
+              }
+              return {...prev, entities: [...prev.entities, {
+                type: 'controller',
+                pos: gameCoords,
+              }], action: "none"};
+            })
+            if(gameState.action == "none") {
+              if(gameState.entities.some(x => x.pos.Equals(gameCoords) && x.type == 'controller'))
+                setGameState(prev => {
+                  return {...prev, action: `inspectController ${gameCoords.x} ${gameCoords.y}`};
+                });
+            }
             setTouchPos(null);
           }}
           >
@@ -156,11 +173,56 @@ function App() {
             <Entities entities={gameState.entities} width={1000} height={1000} rows={rows} columns={columns}/>           
           </g>
         </svg>
-        <TempDiagnosticCanvas temps={gameState.temp} rows={rows * simulationResolution} columns={columns*simulationResolution} colors={[{x:16,r:0,g:0,b:255},{x:21,r:0,g:255,b:0},{x:26,r:255,g:0,b:0}]} style={{position: 'absolute', width: `${min}px`, height: `${min}px`, left: `${gameAnchor.x}px`, top: `${gameAnchor.y}px`}} filter={(pos, _) => {
+        <TempDiagnosticCanvas temps={gameState.temp} rows={rows * simulationResolution} columns={columns*simulationResolution} colors={[{x:16,r:0,g:0,b:255},{x:21,r:0,g:255,b:0},{x:26,r:255,g:0,b:0}]} style={{position: 'absolute', width: `${min}px`, height: `${min}px`, left: `${gameAnchor.x}px`, top: `${gameAnchor.y}px`, pointerEvents: 'none' }} filter={(pos, _) => {
           const gameCoords = pos.Mult(1/simulationResolution).Floor();
           return !gameState.entities.some(x => x.pos.Equals(gameCoords));
         }}/>
-        <Shop points={gameState.points} action={gameState.action} setGameState={setGameState} style={{ position: "absolute", right: 0, width: "200px" }} />
+        <Shop coins={gameState.coins} action={gameState.action} setGameState={setGameState} style={{ position: "absolute", right: 0, width: "200px" }} />
+        <Container min={min} gameAnchor={gameAnchor}>
+          {(() => {
+            const split = gameState.action.split(' ');
+            if(split[0] != 'inspectController') return;
+
+            const coords = new Vec2(+split[1], +split[2]);
+            const controller = gameState.entities.find(x => x.pos.Equals(coords) && x.type == 'controller');
+            if(!controller) {
+              console.error('ACTION WARNING: INSPECTING NON-EXISTING CONTROLLER AT: ', coords);
+              setGameState((prev) => {return {...prev, action: 'none'}});
+              return;
+            }
+            const heatPoint = gameState.heatPoints.find(x => x.pos.Div(simulationResolution).Floor().Equals(coords) && x.source == 'controller');
+            const UIAnchor = coords.Add(new Vec2(0.5, 0.5)).Div(columns, rows).Mult(100);
+            if(!heatPoint) {
+              return (
+                <button style={{left: `${UIAnchor.x}%`, top: `${UIAnchor.y}%`}} onClick={() => {
+                  setGameState(prev => {
+                    if(prev.heatPoints.some(x => x.pos.Div(simulationResolution).Floor().Equals(coords) && x.source == 'controller'))
+                      return {...prev, action: "none"};
+
+                    return {...prev, heatPoints: [...prev.heatPoints, {
+                      vel: new Vec2(0, 0),
+                      source: 'controller',
+                      pos: coords.Add(new Vec2(0.5, 0.5)).Mult(simulationResolution),
+                      strength: -10,
+                    }], action: "none"};
+                  });
+                }}> Activate Temp control </button>
+              );
+            } else {
+              return (
+                <button style={{left: `${UIAnchor.x}%`, top: `${UIAnchor.y}%`}} onClick={() => {
+                  setGameState(prev => {
+                    return {
+                      ...prev,
+                      heatPoints: prev.heatPoints.filter(x => !x.pos.Div(simulationResolution).Floor().Equals(coords) || x.source != 'controller'),
+                      action: "none",
+                    };
+                  });
+                }}> Deactivate Temp control </button>
+              );
+            }
+          })()}
+        </Container>
       </div>
     </>
   )
