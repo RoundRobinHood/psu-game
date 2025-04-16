@@ -1,7 +1,7 @@
 import './App.css';
 import { useRef, useState, useEffect } from "react";
 import Vec2 from './Vec2';
-import { Grid, Entities, TempDiagnostic, TempDiagnosticCanvas } from './SVGComponents.jsx';
+import { Grid, Entities, TempDiagnostic, TempDiagnosticCanvas, WaterAnimation } from './SVGComponents.jsx';
 import { ClientToSVGCoords, FullFreeze, SVGToGameCoords } from './math.js';
 import { FarmIncome, FarmSpawning, GameOverCheck, HeatPoints, Temps } from './simulation.js';
 import { Container, Shop } from './Overlay.jsx';
@@ -105,6 +105,35 @@ function App() {
     <>
       <div style={{ position: "absolute", width: "100%", height: "100%" }}>
         <svg
+          style={{ position: "absolute", width: "100%", height: "100%", touchAction: "none"}}
+          viewBox={`0 0 ${svgViewport.x} ${svgViewport.y}`}>
+          <rect width={svgViewport.x} height={svgViewport.y} fill="lightblue"/>
+        </svg>
+        <WaterAnimation simOffset={gameState.simOffset} columns={columns*simulationResolution} rows={rows*simulationResolution} colors={[{x:0,r:100,g:100,b:100},{x:1,r:3,g:232,b:252}]} sampleScale={new Vec2(1,1).Mult(0.4)} style={{position: 'absolute', width: `${min}px`, height: `${min}px`, left: `${gameAnchor.x}px`, top: `${gameAnchor.y}px`}}/>
+        <svg
+          style={{ position: "absolute", width: "100%", height: "100%", touchAction: "none"}}
+          viewBox={`0 0 ${svgViewport.x} ${svgViewport.y}`}>
+          <g transform={`translate(${svgGameAnchor.x}, ${svgGameAnchor.y})`}>
+            {/*<TempDiagnostic temps={gameState.temp} width={1000} height={1000} rows={rows * simulationResolution} columns={columns * simulationResolution}/>*/}
+            {/*<TempDiagnostic temps={gameState.temp} width={1000} height={1000} rows={rows * simulationResolution} columns={columns * simulationResolution} filter={(pos, _) => {
+              const gameCoords = pos.Mult(1/simulationResolution).Floor()
+              return gameState.entities.some(x => x.type == 'sensor' && x.pos.Equals(gameCoords));
+            }}/>*/}
+            <Entities entities={gameState.entities} width={1000} height={1000} rows={rows} columns={columns}/>           
+          </g>
+        </svg>
+        <TempDiagnosticCanvas temps={gameState.temp} rows={rows * simulationResolution} columns={columns*simulationResolution} colors={[{x:16,r:0,g:0,b:255},{x:21,r:0,g:255,b:0},{x:26,r:255,g:0,b:0}]} style={{position: 'absolute', width: `${min}px`, height: `${min}px`, left: `${gameAnchor.x}px`, top: `${gameAnchor.y}px`}} filter={(pos, _) => {
+          const gameCoords = pos.Mult(1/simulationResolution).Floor();
+          return gameState.entities.some(x => x.pos.Equals(gameCoords) && x.type == 'sensor');
+        }}/>
+        <svg
+          style={{ position: "absolute", width: "100%", height: "100%", touchAction: "none"}}
+          viewBox={`0 0 ${svgViewport.x} ${svgViewport.y}`}>
+          <g transform={`translate(${svgGameAnchor.x}, ${svgGameAnchor.y})`}>
+            <Grid stroke='black' fill='none' rows={10} columns={10} width={1000} height={1000}/>
+          </g>
+        </svg>
+        <svg
           style={{ position: "absolute", width: "100%", height: "100%", touchAction: "none" }}
           viewBox={`0 0 ${svgViewport.x} ${svgViewport.y}`}
           onTouchStart={e => {
@@ -162,17 +191,6 @@ function App() {
             setTouchPos(null);
           }}
           >
-          <rect width={svgViewport.x} height={svgViewport.y} fill="lightblue"/>
-          <g transform={`translate(${svgGameAnchor.x}, ${svgGameAnchor.y})`}>
-            <rect width={1000} height={1000} fill='#9cc7d5' filter='url(#wavy)'/>
-            <Grid stroke='black' fill='none' rows={10} columns={10} width={1000} height={1000}/>
-            {/*<TempDiagnostic temps={gameState.temp} width={1000} height={1000} rows={rows * simulationResolution} columns={columns * simulationResolution}/>*/}
-            <TempDiagnostic temps={gameState.temp} width={1000} height={1000} rows={rows * simulationResolution} columns={columns * simulationResolution} filter={(pos, _) => {
-              const gameCoords = pos.Mult(1/simulationResolution).Floor()
-              return gameState.entities.some(x => x.type == 'sensor' && x.pos.Equals(gameCoords));
-            }}/>
-            <Entities entities={gameState.entities} width={1000} height={1000} rows={rows} columns={columns}/>           
-          </g>
         </svg>
         {/*<TempDiagnosticCanvas temps={gameState.temp} rows={rows * simulationResolution} columns={columns*simulationResolution} colors={[{x:16,r:0,g:0,b:255},{x:21,r:0,g:255,b:0},{x:26,r:255,g:0,b:0}]} style={{position: 'absolute', width: `${min}px`, height: `${min}px`, left: `${gameAnchor.x}px`, top: `${gameAnchor.y}px`, pointerEvents: 'none' }} filter={(pos, _) => {
           const gameCoords = pos.Mult(1/simulationResolution).Floor();
