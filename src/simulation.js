@@ -1,5 +1,5 @@
 import { Noise } from "noisejs";
-import { Cycle, RayIntersectsBox } from "./math";
+import { ApplyHeatpoints, Cycle, GetEffectiveRadius, RayIntersectsBox } from "./math";
 import Vec2 from "./Vec2";
 import { InitGameState } from "./gameState";
 
@@ -134,7 +134,7 @@ export function HeatPoints(frequency = 1/360, simDimensions = new Vec2(100, 100)
 }
 
 /** @returns {Simulation} */
-export function Temps(baseBounds = [18,24], sampleScale = new Vec2(1,1), simDimensions = new Vec2(100, 100), decayRate = 0.2) {
+export function Temps(baseBounds = [18,24], sampleScale = new Vec2(1,1), simDimensions = new Vec2(100, 100), minEffect=0.001, decayRate = 0.2) {
   const noise = new Noise(Math.random());
   /** @param {GameState} prev */
   return (prev) => {
@@ -146,9 +146,10 @@ export function Temps(baseBounds = [18,24], sampleScale = new Vec2(1,1), simDime
         const coordinate = point.Sub(prev.simOffset).Mult(sampleScale);
         const perlin = (noise.perlin2(coordinate.x, coordinate.y) + 1) / 2;
         newTemps[i][j] = baseBounds[0] + perlin * (baseBounds[1] - baseBounds[0]);
-        prev.heatPoints.forEach(x => {
-          newTemps[i][j] += x.strength * Math.exp(-x.pos.Sub(point).Length() * decayRate);
-        });
+        newTemps[i][j] = ApplyHeatpoints(
+          prev.heatPoints.filter(x => 
+            GetEffectiveRadius(x, minEffect, decayRate)**2 >= x.pos.Sub(point).SqrLength()
+          ), point, newTemps[i][j], decayRate);
       }
     }
     return {...prev, temp: newTemps};

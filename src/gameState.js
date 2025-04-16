@@ -33,6 +33,7 @@ import Vec2 from "./Vec2";
  * @property {number} score
  * @property {string} action
  * @property {number} time
+ * @property {Object} overlayState
  */
 
 /**
@@ -49,9 +50,10 @@ export function InitGameState(targetFPS) {
     nextHeatPoint: Math.floor(-Math.log(Math.random()) * 30 * targetFPS),
     temp: [],
     simulations: [],
-    coins: 10,
+    coins: 50,
     score: 0,
     action: "none",
     time: -1,
+    overlayState: {},
   };
 }

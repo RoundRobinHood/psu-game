@@ -72,3 +72,40 @@ export function RayIntersectsBox(Origin, Direction, BoxMin, BoxMax) {
 
   return Math.min(t2.x, t2.y) >= Math.max(Math.min(t1.x, t1.y), 0);
 }
+
+/** 
+ * Calculate the effective radius of a heat point
+ * @param {HeatPoint} heatPoint
+ * @param {number} minEffect
+ */
+export function GetEffectiveRadius(heatPoint, minEffect, decayRate) {
+  switch(heatPoint.source) {
+    case 'random':
+      return -Math.log(minEffect / heatPoint.strength) / decayRate;
+    case 'controller':
+      return Math.abs(heatPoint.strength);
+  }
+}
+
+export function ApplyHeatpoints(heatPoints, coord, val, decayRate) {
+  const sorted = {};
+  heatPoints.forEach(x => {
+    if(!sorted[x.source]) sorted[x.source] = [];
+    sorted[x.source].push(x);
+  })
+
+  let ret = val
+  if(sorted.random) sorted.random.forEach(x => {
+    ret += x.strength * Math.exp(-x.pos.Sub(coord).Length() * decayRate);
+  });
+  if(sorted.controller) sorted.controller.forEach(x => {
+    if(x.pos.Sub(coord).SqrLength() > x.strength ** 2)
+      return;
+    if(x.strength < 0 && ret < 18)
+      ret = 18;
+    if(x.strength > 0 && ret > 24)
+      ret = 24;
+  });
+
+  return ret;
+}

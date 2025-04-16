@@ -69,6 +69,7 @@ function App() {
         score: prev.score,
         action: prev.action,
         time: prev.time + 1,
+        overlayState: prev.overlayState,
       }
 
       // Initialize everything if not initialized
@@ -100,15 +101,12 @@ function App() {
     }
   }, [])
 
-  const svgRef = useRef(null);
-
   return (
     <>
       <div style={{ position: "absolute", width: "100%", height: "100%" }}>
         <svg
           style={{ position: "absolute", width: "100%", height: "100%", touchAction: "none" }}
           viewBox={`0 0 ${svgViewport.x} ${svgViewport.y}`}
-          ref={svgRef}
           onTouchStart={e => {
             const touch = e.touches[0]
 
@@ -158,6 +156,9 @@ function App() {
                   return {...prev, action: `inspectController ${gameCoords.x} ${gameCoords.y}`};
                 });
             }
+            if(gameState.action.split(' ')[0] == 'inspectController') setGameState(prev => {
+              return {...prev, action: 'none', overlayState: {...prev.overlayState, inspectControllerTime: undefined}};
+            });
             setTouchPos(null);
           }}
           >
@@ -173,10 +174,10 @@ function App() {
             <Entities entities={gameState.entities} width={1000} height={1000} rows={rows} columns={columns}/>           
           </g>
         </svg>
-        <TempDiagnosticCanvas temps={gameState.temp} rows={rows * simulationResolution} columns={columns*simulationResolution} colors={[{x:16,r:0,g:0,b:255},{x:21,r:0,g:255,b:0},{x:26,r:255,g:0,b:0}]} style={{position: 'absolute', width: `${min}px`, height: `${min}px`, left: `${gameAnchor.x}px`, top: `${gameAnchor.y}px`, pointerEvents: 'none' }} filter={(pos, _) => {
+        {/*<TempDiagnosticCanvas temps={gameState.temp} rows={rows * simulationResolution} columns={columns*simulationResolution} colors={[{x:16,r:0,g:0,b:255},{x:21,r:0,g:255,b:0},{x:26,r:255,g:0,b:0}]} style={{position: 'absolute', width: `${min}px`, height: `${min}px`, left: `${gameAnchor.x}px`, top: `${gameAnchor.y}px`, pointerEvents: 'none' }} filter={(pos, _) => {
           const gameCoords = pos.Mult(1/simulationResolution).Floor();
           return !gameState.entities.some(x => x.pos.Equals(gameCoords));
-        }}/>
+        }}/>*/}
         <Shop coins={gameState.coins} action={gameState.action} setGameState={setGameState} style={{ position: "absolute", right: 0, width: "200px" }} />
         <Container min={min} gameAnchor={gameAnchor}>
           {(() => {
@@ -192,10 +193,22 @@ function App() {
             }
             const heatPoint = gameState.heatPoints.find(x => x.pos.Div(simulationResolution).Floor().Equals(coords) && x.source == 'controller');
             const UIAnchor = coords.Add(new Vec2(0.5, 0.5)).Div(columns, rows).Mult(100);
+            if(!gameState.overlayState.inspectControllerTime)
+            {
+              setGameState((prev) => {
+                if(!prev.overlayState.inspectControllerTime)
+                  return {...prev, overlayState:{...prev.overlayState, inspectControllerTime: prev.time + Math.max(Math.floor(targetFPS/10), 1)}};
+                else
+                  return prev;
+              });
+              return;
+            }
             if(!heatPoint) {
               return (
                 <button style={{left: `${UIAnchor.x}%`, top: `${UIAnchor.y}%`}} onClick={() => {
                   setGameState(prev => {
+                    if(!prev.overlayState.inspectControllerTime || prev.overlayState.inspectControllerTime > prev.time)
+                      return prev;
                     if(prev.heatPoints.some(x => x.pos.Div(simulationResolution).Floor().Equals(coords) && x.source == 'controller'))
                       return {...prev, action: "none"};
 
@@ -203,8 +216,8 @@ function App() {
                       vel: new Vec2(0, 0),
                       source: 'controller',
                       pos: coords.Add(new Vec2(0.5, 0.5)).Mult(simulationResolution),
-                      strength: -10,
-                    }], action: "none"};
+                      strength: 20,
+                    }], action: "none", overlayState: {...prev.overlayState, inspectControllerTime: undefined}};
                   });
                 }}> Activate Temp control </button>
               );
@@ -212,10 +225,13 @@ function App() {
               return (
                 <button style={{left: `${UIAnchor.x}%`, top: `${UIAnchor.y}%`}} onClick={() => {
                   setGameState(prev => {
+                    if(!prev.overlayState.inspectControllerTime || prev.overlayState.inspectControllerTime > prev.time)
+                      return prev;
                     return {
                       ...prev,
                       heatPoints: prev.heatPoints.filter(x => !x.pos.Div(simulationResolution).Floor().Equals(coords) || x.source != 'controller'),
                       action: "none",
+                      overlayState: {...prev.overlayState, inspectControllerTime: undefined},
                     };
                   });
                 }}> Deactivate Temp control </button>
